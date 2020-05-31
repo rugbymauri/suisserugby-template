@@ -27,4 +27,19 @@ page {
     includeJSFooter {
         suisse_rugby_scripts = EXT:suisse_rugby/Resources/Public/JavaScript/Dist/scripts.js
     }
+
+
+    10 {
+        dataProcessing {
+            110  = TYPO3\CMS\Frontend\DataProcessing\MenuProcessor
+            110 {
+                special = directory
+                special.value = 16
+                includeSpacer = 1
+                as = headernavigation
+            }
+        }
+    }
 }
+
+config.no_cache = 1

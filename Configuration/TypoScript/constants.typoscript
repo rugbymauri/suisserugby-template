@@ -55,6 +55,14 @@ plugin.bootstrap_package_contentelements {
 ### BOOTSTRAP SCSS CONSTANTS ###
 ################################
 plugin.bootstrap_package.settings.scss {
+    red = #c8102e
     primary = #eb3e4a
     secondary = #013859
+    breadcrumb-bg = $red
+    breadcrumb-active-color = $white
+    breadcrumb-divider-color = $gray-300
+    breadcrumb-divider = quote("|")
 }
+
+
+
