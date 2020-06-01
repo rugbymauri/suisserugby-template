@@ -33,12 +33,29 @@ page {
 
     10 {
         dataProcessing {
-            110  = TYPO3\CMS\Frontend\DataProcessing\MenuProcessor
+            110 = TYPO3\CMS\Frontend\DataProcessing\MenuProcessor
             110 {
                 special = directory
                 special.value = 16
                 includeSpacer = 1
                 as = headernavigation
+            }
+
+
+            130 = TYPO3\CMS\Frontend\DataProcessing\MenuProcessor
+            130 {
+                special = directory
+                special.value = 28
+                levels = 1
+                as = partnernavigation
+                expandAll = 1
+                titleField = nav_title // title
+                dataProcessing {
+                    10 = TYPO3\CMS\Frontend\DataProcessing\FilesProcessor
+                    10 {
+                        references.fieldName = media
+                    }
+                }
             }
         }
     }
