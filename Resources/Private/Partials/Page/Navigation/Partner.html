@@ -3,13 +3,11 @@ asd
     <f:if condition="{partnernavigation}">
         <ul class="nav">
             <f:for each="{partnernavigation}" as="item">
-                <f:debug>{item.files.0}</f:debug>
-
                 <li class="nav-item{f:if(condition: item.active, then:' active')}{f:if(condition: item.children, then:' dropdown dropdown-hover')}">
                     <a href="{item.link}" id="nav-item-{item.data.uid}" class="nav-link{f:if(condition: item.children, then:' dropdown-toggle')}"{f:if(condition: item.target, then: ' target="{item.target}"')} title="{item.title}"{f:if(condition: item.children, then:' aria-haspopup="true" aria-expanded="false"')}>
 
-                    <img src="{f:uri.image(image:item.files.0, minWidth: 20, maxWidth: 20)}">
-                        <span class="nav-link-text">{item.title}<f:if condition="{item.current}"> <span class="sr-only">(current)</span></f:if></span>
+                    <img src="{f:uri.image(image:item.files.0, minWidth: 100, maxWidth: 100)}" title="{item.title}" alt="{item.title}">
+
                     </a>
                 </li>
             </f:for>
