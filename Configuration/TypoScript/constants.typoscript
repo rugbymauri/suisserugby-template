@@ -9,10 +9,10 @@
 ############
 page {
     logo {
-        file = EXT:suisse_rugby/Resources/Public/Images/logo.svg
-        fileInverted = EXT:suisse_rugby/Resources/Public/Images/logo-inverted.svg
-        height = 52
-        width = 192
+        file = EXT:suisse_rugby/Resources/Public/Images/logo.png
+        fileInverted = EXT:suisse_rugby/Resources/Public/Images/logo.png
+        height = 117
+        width = 250
         alt = Suisse Rugby
         linktitle = Suisse Rugby
     }
