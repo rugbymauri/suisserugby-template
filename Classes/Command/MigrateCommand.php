@@ -3,6 +3,7 @@
 namespace MaurizioMonticelli\SuisseRugby\Command;
 
 
+use mysqli;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -16,6 +17,7 @@ class MigrateCommand extends Command
         $config = new Config();
 
 
+        $this->importFiles($config);
         $this->importPages($config);
         $this->importContent($config);
 
@@ -23,6 +25,91 @@ class MigrateCommand extends Command
 
     }
 
+    private function importFiles(Config $c): void
+    {
+
+        $result = $c->connSource->query("SELECT * FROM sys_file  order by pid");
+
+        $pageOldUid = $c->connTarget->query('SHOW COLUMNS FROM `sys_file` LIKE \'old_uid\'');
+        if ($pageOldUid->num_rows === 0) {
+            $c->connTarget->query('ALTER TABLE `sys_file` ADD COLUMN `old_uid` INT(11)');
+        }
+
+
+        if ($result->num_rows > 0) {
+            // output data of each row
+            while ($row = $result->fetch_assoc()) {
+
+                // check files exists
+
+                $file = null;
+                switch ($row['storage']) {
+                    case 0;
+                        $file = '/home/mauri/PhpstormProjects/suisserugby-new/public' . $row['identifier'];
+                        break;
+                    case 1;
+                        $file = '/home/mauri/PhpstormProjects/suisserugby-new/public/fileadmin' . $row['identifier'];
+                        break;
+
+                }
+                if (!file_exists($file)) {
+                    echo 'missing file' . $file . PHP_EOL;
+                    continue;
+                }
+
+
+                $resultExisting = $c->connTarget->query("SELECT * FROM sys_file where identifier = '" . $row['identifier'] . "'");
+                if ($resultExisting->num_rows > 0) {
+                    $existingRow = $resultExisting->fetch_assoc();
+                    $sql = 'update sys_file set old_uid = ' . $row['uid'] . ' where uid = ' . $existingRow['uid'];
+                    $c->fileMap[$row['uid']] = $existingRow['uid'];
+
+                    if ($c->connTarget->query($sql) === TRUE) {
+                        echo '';
+                    } else {
+                        echo "Error: " . $c->connTarget->error . PHP_EOL;
+                        echo "sql: " . $sql . PHP_EOL;
+                    }
+                }
+
+                $insertData = $row;
+                $insertData['old_uid'] = $row['uid'];
+                unset($insertData['uid']);
+                unset($insertData['crdate']);
+                unset($insertData['cruser_id']);
+                unset($insertData['t3ver_oid']);
+                unset($insertData['t3ver_id']);
+                unset($insertData['t3ver_wsid']);
+                unset($insertData['t3ver_label']);
+                unset($insertData['t3ver_state']);
+                unset($insertData['t3ver_stage']);
+                unset($insertData['t3ver_count']);
+                unset($insertData['t3ver_tstamp']);
+                unset($insertData['t3ver_move_id']);
+                unset($insertData['t3_origuid']);
+                unset($insertData['title']);
+                unset($insertData['width']);
+                unset($insertData['height']);
+                unset($insertData['description']);
+                unset($insertData['alternative']);
+
+
+                $sql = $this->makeInsert($insertData, 'sys_file', $c->connTarget);
+
+
+                if ($c->connTarget->query($sql) === TRUE) {
+                    echo '';
+                    $c->fileMap[$row['uid']] = $c->connTarget->insert_id;
+                } else {
+                    echo "Error: " . $c->connTarget->error . PHP_EOL;
+                    echo "sql: " . $sql . PHP_EOL;
+                }
+
+            }
+        } else {
+            echo "0 results";
+        }
+    }
 
     private function importPages(Config $c): void
     {
@@ -69,6 +156,8 @@ class MigrateCommand extends Command
 
 
                 $insertData = [];
+
+                $insertData['old_uid'] = $row['uid'];
                 $insertData['crdate'] = $row['crdate'];
                 $insertData['tstamp'] = $row['tstamp'];
                 $insertData['cruser_id'] = 1;
@@ -133,7 +222,6 @@ class MigrateCommand extends Command
                 $insertData['backend_layout'] = $row['backend_layout'];
                 $insertData['backend_layout_next_level'] = $row['backend_layout_next_level'];
                 $insertData['tx_impexp_origuid'] = $row['tx_impexp_origuid'];
-                $insertData['old_uid'] = $row['uid'];
                 $insertData['pid'] = $c->pageMap[$row['pid']];
                 if (isset($slugs[$row['uid']][0])) {
                     $insertData['slug'] = $slugs[$row['uid']][0];
@@ -142,7 +230,7 @@ class MigrateCommand extends Command
                 }
 
 
-                $sql = $this->makeInsert($insertData, 'pages',  $c->connTarget);
+                $sql = $this->makeInsert($insertData, 'pages', $c->connTarget);
 
                 if ($c->connTarget->query($sql) === TRUE) {
                     $c->pageMap[$row['uid']] = $c->connTarget->insert_id;
@@ -152,13 +240,18 @@ class MigrateCommand extends Command
                     }
                     foreach ($pageTransalations[$row['uid']] as $language => $transalation) {
 
-                        echo 'Translate: ' .$language . PHP_EOL;
-                        foreach ($transalation as $key => $value)
-                        {
+                        echo 'Translate: ' . $language . PHP_EOL;
+                        foreach ($transalation as $key => $value) {
                             if (isset($insertData[$key])) {
-                                if ($key === 'uid') { continue; }
-                                if ($key === 'pid') { continue; }
-                                if ($key === 'cruser_id') { continue; }
+                                if ($key === 'uid') {
+                                    continue;
+                                }
+                                if ($key === 'pid') {
+                                    continue;
+                                }
+                                if ($key === 'cruser_id') {
+                                    continue;
+                                }
                                 if ($key === 'media') {
                                     if ($value === null) {
                                         $value = 0;
@@ -169,7 +262,7 @@ class MigrateCommand extends Command
                         }
 
                         $insertData['sys_language_uid'] = $language;
-                        $insertData['l10n_parent'] =$c->pageMap[$row['uid']];
+                        $insertData['l10n_parent'] = $c->pageMap[$row['uid']];
                         $insertData['l10n_source'] = $c->pageMap[$row['uid']];
 
                         $insert = [];
@@ -181,12 +274,10 @@ class MigrateCommand extends Command
                             ') VALUES (' . implode(', ', $insert) . ')';
 
 
-
                         if ($c->connTarget->query($sql) === FALSE) {
                             echo "Error Translations: " . $sql . PHP_EOL;
                         }
                     }
-
 
 
                 } else {
@@ -202,6 +293,10 @@ class MigrateCommand extends Command
     private function importContent(Config $c): void
     {
 
+        $skippedContentType = [
+            'div' => true,
+            'media' => true,
+        ];
 
         $result = $c->connSource->query("SELECT * FROM tt_content where deleted = 0 order by pid");
 
@@ -219,11 +314,34 @@ class MigrateCommand extends Command
                     continue;
                 }
 
-                if ($row['CType'] !== 'text') {
+                if (
+                    $row['CType'] !== 'text' &&
+                    $row['CType'] !== 'table' &&
+                    $row['CType'] !== 'header' &&
+                    $row['CType'] !== 'menu' &&
+                    $row['CType'] !== 'uploads' &&
+                    $row['CType'] !== 'textpic' &&
+                    $row['CType'] !== 'image' &&
+                    $row['CType'] !== 'html'
+                ) {
+                    if (!isset($skippedContentType[$row['CType']])) {
+                        $skippedContentType[$row['CType']] = true;
+                        echo 'skip ' . $row['CType'] . PHP_EOL;
+                    }
                     continue;
                 }
+
                 if ($row['sys_language_uid'] != 0) {
                     continue;
+                }
+
+
+                if ($row['CType'] == 'menu') {
+                    if ($row['menu_type'] == '1') {
+                        $row['CType'] = 'menu_subpages';
+                    } else {
+                        echo 'menu type ' . $row['menu_type'] . ' not defined!';
+                    }
                 }
 
                 $insertData = $row;
@@ -265,11 +383,18 @@ class MigrateCommand extends Command
                 unset($insertData['tx_gridelements_container']);
                 unset($insertData['tx_gridelements_columns']);
 
-                if ($insertData['image'] === null) { $insertData['image'] = 0; }
-                if ($insertData['media'] === null) { $insertData['media'] = 0; }
-                if ($insertData['colPos'] == -1) { $insertData['colPos'] = 0; }
+                if ($insertData['image'] === null) {
+                    $insertData['image'] = 0;
+                }
+                if ($insertData['media'] === null) {
+                    $insertData['media'] = 0;
+                }
+                if ($insertData['colPos'] == -1) {
+                    $insertData['colPos'] = 0;
+                }
 
                 $insertData['pid'] = $c->pageMap[$row['pid']];
+                $insertData['old_uid'] = $row['pid'];
                 $insertData['cruser_id'] = 1;
                 $insertData['header_layout'] = 0;
                 $insertData['l18n_diffsource'] = '';
@@ -296,24 +421,68 @@ class MigrateCommand extends Command
     </data>
 </T3FlexForms>';
 
-
                 $sql = $this->makeInsert($insertData, 'tt_content', $c->connTarget);
 
 
                 if ($c->connTarget->query($sql) === TRUE) {
                     echo '';
+                    $c->contentMap[$row['uid']] = $c->connTarget->insert_id;
 
                 } else {
                     echo "Error: " . $c->connTarget->error . PHP_EOL;
                     echo "sql: " . $sql . PHP_EOL;
                 }
 
+                $this->importFileRelation($row['uid'], $row['pid'], $c);
             }
         } else {
             echo "0 results";
         }
     }
 
+    private function importFileRelation($content_uid, $page_uid, Config $c)
+    {
+
+        $result = $c->connSource->query("SELECT * FROM sys_file_reference where pid = " . $page_uid . " and uid_foreign = " . $content_uid . " and deleted = 0");
+
+        if ($result->num_rows > 0) {
+            // output data of each row
+            while ($row = $result->fetch_assoc()) {
+
+                if (!isset($c->fileMap[$row['uid_local']])) {
+                    continue;
+                }
+
+                $insertData = $row;
+                unset($insertData['uid']);
+                unset($insertData['sorting']);
+                unset($insertData['t3ver_id']);
+                unset($insertData['t3ver_label']);
+                unset($insertData['t3_origuid']);
+                unset($insertData['downloadname']);
+                unset($insertData['sorting']);
+                unset($insertData['sorting']);
+                if ($insertData['link'] == null) {
+                    $insertData['link'] = '';
+                }
+
+                $insertData['cruser_id'] = 1;
+                $insertData['uid_local'] = $c->fileMap[$insertData['uid_local']];
+                $insertData['pid'] = $c->pageMap[$insertData['pid']];
+                $insertData['uid_foreign'] = $c->contentMap[$insertData['uid_foreign']];
+
+                $sql = $this->makeInsert($insertData, 'sys_file_reference', $c->connTarget);
+
+                if ($c->connTarget->query($sql) === TRUE) {
+                    echo '';
+                } else {
+                    echo "Error: " . $c->connTarget->error . PHP_EOL;
+                    echo "sql: " . $sql . PHP_EOL;
+                }
+            }
+        }
+
+    }
 
     private function makeInsert(?array $insertData, string $table, mysqli $connTarget): string
     {
@@ -332,7 +501,7 @@ class MigrateCommand extends Command
         }
 
         $sql =
-            'INSERT INTO `'.$table.'` (' . implode(', ', $fields) .
+            'INSERT INTO `' . $table . '` (' . implode(', ', $fields) .
             ') VALUES (' . implode(', ', $values) . ')';
 
         return $sql;

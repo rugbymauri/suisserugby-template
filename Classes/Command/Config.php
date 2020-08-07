@@ -4,11 +4,12 @@
 namespace MaurizioMonticelli\SuisseRugby\Command;
 
 
+use mysqli;
+
 class Config
 {
-    public array $skipPages =[
+    public $skipPages = [
         1,
-
         12,
         129,
         13,
@@ -21,9 +22,11 @@ class Config
 
     ];
 
-    public array $pageMap = [ 1 => 1];
-    public mysqli $connSource;
-    public mysqli $connTarget;
+    public $pageMap = [ 1 => 1];
+    public $contentMap = [];
+    public $fileMap = [];
+    public $connSource;
+    public $connTarget;
 
     public function __construct()
     {
