@@ -93,28 +93,66 @@ class MigrateCommand extends Command
                 unset($insertData['description']);
                 unset($insertData['alternative']);
 
-
                 $sql = $this->makeInsert($insertData, 'sys_file', $c->connTarget);
-
 
                 if ($c->connTarget->query($sql) === TRUE) {
                     echo '';
                     $c->fileMap[$row['uid']] = $c->connTarget->insert_id;
+                    $insertData['uid'] = $c->connTarget->insert_id;
+
+                    $this->importFileMetadata($row, $insertData['uid'], $c);
                 } else {
                     echo "Error: " . $c->connTarget->error . PHP_EOL;
                     echo "sql: " . $sql . PHP_EOL;
                 }
-
             }
         } else {
             echo "0 results";
         }
     }
 
+    private function importFileMetadata(?array $insertData, $uid, Config $c)
+    {
+        $metaData['pid'] = 0;
+        $metaData['tstamp'] = time();
+        $metaData['crdate'] = time();
+        $metaData['cruser_id'] = 1;
+        $metaData['sys_language_uid'] = 0;
+        $metaData['l10n_parent'] = 0;
+        $metaData['l10n_state'] = null;
+        $metaData['t3_origuid'] = 0;
+        $metaData['l10n_diffsource'] = 0;
+        $metaData['t3ver_oid'] = 0;
+        $metaData['t3ver_wsid'] = 0;
+        $metaData['t3ver_state'] = 0;
+        $metaData['t3ver_stage'] = 0;
+        $metaData['t3ver_count'] = 0;
+        $metaData['t3ver_tstamp'] = 0;
+        $metaData['t3ver_move_id'] = 0;
+        $metaData['file'] = $uid;
+        $metaData['title'] = $insertData['title'];
+        $metaData['width'] = $insertData['width'];
+        $metaData['height'] = $insertData['height'];
+        $metaData['description'] = $insertData['description'];
+        $metaData['alternative'] = $insertData['alternative'];
+        $metaData['categories'] = 0;
+
+        $sql = $this->makeInsert($metaData, 'sys_file_metadata', $c->connTarget);
+
+        if ($c->connTarget->query($sql) === TRUE) {
+            echo '';
+        } else {
+            echo "Error: " . $c->connTarget->error . PHP_EOL;
+            echo "sql: " . $sql . PHP_EOL;
+        }
+
+    }
+
+
+
     private function importPages(Config $c): void
     {
         $result = $c->connSource->query("SELECT page_id, language_id, pagepath FROM tx_realurl_pathcache");
-
         $slugs = [];
 
         while ($row = $result->fetch_assoc()) {
@@ -122,13 +160,11 @@ class MigrateCommand extends Command
         }
 
         $result = $c->connSource->query("SELECT * FROM pages_language_overlay");
-
         $pageTransalations = [];
 
         while ($row = $result->fetch_assoc()) {
             $pageTransalations[$row['pid']][$row['sys_language_uid']] = $row;
         }
-
 
         $result = $c->connSource->query("SELECT * FROM pages where deleted = 0 order by pid");
 
@@ -350,7 +386,6 @@ class MigrateCommand extends Command
                 unset($insertData['t3ver_label']);
                 unset($insertData['imagecaption']);
 
-
                 unset($insertData['spaceBefore']);
                 unset($insertData['spaceAfter']);
                 unset($insertData['imagecaption_position']);
@@ -394,7 +429,7 @@ class MigrateCommand extends Command
                 }
 
                 $insertData['pid'] = $c->pageMap[$row['pid']];
-                $insertData['old_uid'] = $row['pid'];
+                $insertData['old_uid'] = $row['uid'];
                 $insertData['cruser_id'] = 1;
                 $insertData['header_layout'] = 0;
                 $insertData['l18n_diffsource'] = '';
@@ -470,6 +505,8 @@ class MigrateCommand extends Command
                 $insertData['uid_local'] = $c->fileMap[$insertData['uid_local']];
                 $insertData['pid'] = $c->pageMap[$insertData['pid']];
                 $insertData['uid_foreign'] = $c->contentMap[$insertData['uid_foreign']];
+                $insertData['l10n_diffsource'] = '';
+                $insertData['crop'] = '{"default":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null},"large":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null},"medium":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null},"small":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null},"extrasmall":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null}}';
 
                 $sql = $this->makeInsert($insertData, 'sys_file_reference', $c->connTarget);
 
@@ -505,6 +542,11 @@ class MigrateCommand extends Command
             ') VALUES (' . implode(', ', $values) . ')';
 
         return $sql;
+    }
+
+
+    private function convert($str) {
+        return mb_convert_encoding($str, 'UTF-8' , 'UTF-8');
     }
 
 }
