@@ -26,6 +26,7 @@ class Config
     public $contentMap = [];
     public $fileMap = [];
     public $newsMap = [];
+    public $categoryMap = [];
     public $connSource;
     public $connTarget;
 
@@ -44,11 +45,28 @@ class Config
             die("Connection failed: " . $this->connTarget->connect_error);
         }
         echo "Connected successfully";
+
+
+
+        $this->loadCategoryMap();
     }
 
     public function close()
     {
         $this->connSource->close();
         $this->connTarget->close();
+    }
+
+    private function loadCategoryMap()
+    {
+        $result = $this->connTarget->query("SELECT uid, old_uid FROM sys_category");
+
+
+        if ($result->num_rows > 0) {
+            // output data of each row
+            while ($row = $result->fetch_assoc()) {
+                $this->categoryMap[$row['old_uid']] = $row['uid'];
+            }
+        }
     }
 }

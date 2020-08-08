@@ -11,6 +11,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class MigrateCommand extends Command
 {
 
+    /** @var Config */
 
     private $config;
 
@@ -18,6 +19,7 @@ class MigrateCommand extends Command
     {
 
         $this->config = new Config();
+        $this->importCategory();
         $this->importFiles();
         $this->importPages();
         $this->importContent();
@@ -26,7 +28,10 @@ class MigrateCommand extends Command
         $this->config->close();
 
     }
-
+    private function importCategory (): void
+    {
+        $result = $this->config->connSource->query("SELECT * FROM tx_news_domain_model_category  order by uid");
+    }
     private function importNews(): void
     {
         $newsPid = 25;
@@ -50,8 +55,6 @@ class MigrateCommand extends Command
                 }
 
 
-
-
                 $insertData = $row;
                 $insertData['pid'] = $newsPid;
                 $insertData['old_uid'] = $insertData['uid'];
@@ -65,7 +68,6 @@ class MigrateCommand extends Command
                 if ($row['tx_roqnewsevent_is_event'] == 1) {
                     $insertData['pid'] = $eventPid;
                 }
-
 
                 unset($insertData['uid']);
                 unset($insertData['rte_disabled']);
@@ -88,103 +90,9 @@ class MigrateCommand extends Command
                     $this->config->newsMap[$row['uid']] = $this->config->connTarget->insert_id;
 
 
-                    $resultNewsMedia = $this->config->connSource->query('select * from tx_news_domain_model_media where parent = ' . $row['uid']);
-
-                    if ($resultNewsMedia->num_rows > 0) {
-                        // output data of each row
-                        while ($rowNewsMedia = $resultNewsMedia->fetch_assoc()) {
-
-                            $mediaRel = [];
-
-                            $mediaUid = $this->getSysFileId($rowNewsMedia['image']);
-                            if ($mediaUid !== null) {
-                                $mediaRel ['uid_local'] = $this->getSysFileId($rowNewsMedia['image']);
-                            } else {
-                                continue;
-                            }
-
-                            $mediaRel ['uid_foreign'] = $this->config->newsMap[$row['uid']];
-
-                            $mediaRel ['pid'] = $insertData['pid'];
-                            $mediaRel ['tstamp'] = $rowNewsMedia['tstamp'];
-                            $mediaRel ['crdate'] = $rowNewsMedia['crdate'];
-                            $mediaRel ['cruser_id'] = $rowNewsMedia['cruser_id'];
-                            $mediaRel ['deleted'] = $rowNewsMedia['deleted'];
-                            $mediaRel ['hidden'] = $rowNewsMedia['hidden'];
-                            $mediaRel ['sys_language_uid'] = $rowNewsMedia['sys_language_uid'];
-                            $mediaRel ['l10n_parent'] = 0;
-                            $mediaRel ['l10n_state'] = null;
-                            $mediaRel ['l10n_diffsource'] = '';
-                            $mediaRel ['t3ver_oid'] = 0;
-                            $mediaRel ['t3ver_wsid'] = 0;
-                            $mediaRel ['t3ver_state'] = 0;
-                            $mediaRel ['t3ver_stage'] = 0;
-                            $mediaRel ['t3ver_count'] = 0;
-                            $mediaRel ['t3ver_tstamp'] = 0;
-                            $mediaRel ['t3ver_move_id'] = 0;
-
-                            $mediaRel ['tablenames'] = 'tx_news_domain_model_news';
-                            $mediaRel ['fieldname'] = 'fal_media';
-                            $mediaRel ['sorting_foreign'] = 1;
-                            $mediaRel ['table_local'] = 'sys_file';
-                            $mediaRel ['title'] = $rowNewsMedia['title'];
-                            $mediaRel ['description'] = $rowNewsMedia['description'] . $rowNewsMedia['copyright'];
-                            $mediaRel ['alternative'] = $rowNewsMedia['alt'];
-                            $mediaRel ['link'] = '';
-                            $mediaRel ['crop'] = '{"default":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null}}';
-                            $mediaRel ['autoplay'] = 0;
-                            $mediaRel ['showinpreview'] = 0;
-
-                            $mediaSql = $this->makeInsert($mediaRel, 'sys_file_reference', $this->config->connTarget);
-
-                            if ($this->config->connTarget->query($mediaSql) === TRUE) {
-                                echo '';
-                            } else {
-                                echo "Error: " . $this->config->connTarget->error . PHP_EOL;
-                                echo "sql: " . $mediaSql . PHP_EOL;
-                            }
-
-                        }
-                    }
-
-                     // migrate media
-//                    uid
-//                    pid
-//                    tstamp
-//                    crdate
-//                    cruser_id
-//                    deleted
-//                    hidden
-//                    sys_language_uid
-//                    l10n_parent
-//                    l10n_state
-//                    l10n_diffsource
-//                    t3ver_oid
-//                    t3ver_wsid
-//                    t3ver_state
-//                    t3ver_stage
-//                    t3ver_count
-//                    t3ver_tstamp
-//                    t3ver_move_id
-//                    uid_local
-//                    uid_foreign
-//                    tablenames
-//                    fieldname
-//                    sorting_foreign
-//                    table_local
-//                    title
-//                    description
-//                    alternative
-//                    link
-//                    crop
-//                    autoplay
-//                    showinpreview
-//                    344,$newPid,1596843940,1596843940,1,0,0,0,0,,0x,0,0,0,0,0,0,0,$sysFileId,$newsId,tx_news_domain_model_news,fal_media,1,sys_file,,,,"","{""default"":{""cropArea"":{""x"":0,""y"":0,""width"":1,""height"":1},""selectedRatio"":""NaN"",""focusArea"":null}}",0,0
-//                    345,$newPid,1596843940,1596843940,1,0,0,1,$prevId,,0x,0,0,0,0,0,0,0,$sysFileId,$translatedNewsId,tx_news_domain_model_news,fal_media,1,sys_file,[Translate to French:] ,[Translate to French:] ,[Translate to French:] ,"","{""default"":{""cropArea"":{""x"":0,""y"":0,""width"":1,""height"":1},""selectedRatio"":""NaN"",""focusArea"":null}}",0,0
-
-                    $mediaRel = [];
-
-
+                    $uid = $row['uid'];
+                    $this->importNewsMedia($uid, $insertData);
+                    $this->importNewsCategory($uid, $insertData);
 
 
                 } else {
@@ -192,7 +100,7 @@ class MigrateCommand extends Command
                     echo "sql: " . $sql . PHP_EOL;
                 }
 
-                $this->importFileRelation($row['uid'], $row['pid']);
+//                $this->importFileRelation($row['uid'], $row['pid']);
             }
         } else {
             echo "0 results";
@@ -228,7 +136,7 @@ class MigrateCommand extends Command
 
                 }
                 if (!file_exists($file)) {
-                    echo 'missing file' . $file . PHP_EOL;
+//                    echo 'missing file ' . $file . PHP_EOL;
                     continue;
                 }
 
@@ -358,10 +266,10 @@ class MigrateCommand extends Command
                     continue;
                 }
 
-                echo "uid: " . $row["uid"] .
-                    " - pid: " . $row["pid"] .
-                    " - title: " . $row["title"] .
-                    PHP_EOL;
+//                echo "uid: " . $row["uid"] .
+//                    " - pid: " . $row["pid"] .
+//                    " - title: " . $row["title"] .
+//                    PHP_EOL;
 
 
                 $insertData = [];
@@ -449,7 +357,7 @@ class MigrateCommand extends Command
                     }
                     foreach ($pageTransalations[$row['uid']] as $language => $transalation) {
 
-                        echo 'Translate: ' . $language . PHP_EOL;
+//                        echo 'Translate: ' . $language . PHP_EOL;
                         foreach ($transalation as $key => $value) {
                             if (isset($insertData[$key])) {
                                 if ($key === 'uid') {
@@ -723,7 +631,7 @@ class MigrateCommand extends Command
 
     private function getSysFileId($image)
     {
-        $result = $this->config->connSource->query("SELECT uid FROM sys_file where identifier = '/uploads/tx_news/" . $image . "'");
+        $result = $this->config->connTarget->query("SELECT uid FROM sys_file where identifier = '/uploads/tx_news/" . $image . "'");
 
 
         if ($result->num_rows > 0) {
@@ -733,6 +641,107 @@ class MigrateCommand extends Command
             }
         }
         return null;
+    }
+
+    /**
+     * @param $uid
+     * @param $insertData
+     */
+    private function importNewsMedia($uid, $insertData): void
+    {
+        $resultNewsMedia = $this->config->connSource->query('select * from tx_news_domain_model_media where parent = ' . $uid);
+
+        if ($resultNewsMedia->num_rows > 0) {
+            // output data of each row
+            while ($rowNewsMedia = $resultNewsMedia->fetch_assoc()) {
+
+                $mediaRel = [];
+
+                $mediaUid = $this->getSysFileId($rowNewsMedia['image']);
+                if ($mediaUid !== null) {
+                    $mediaRel ['uid_local'] = $this->getSysFileId($rowNewsMedia['image']);
+                } else {
+                    continue;
+                }
+
+                $mediaRel ['uid_foreign'] = $this->config->newsMap[$uid];
+
+                $mediaRel ['pid'] = $insertData['pid'];
+                $mediaRel ['tstamp'] = $rowNewsMedia['tstamp'];
+                $mediaRel ['crdate'] = $rowNewsMedia['crdate'];
+                $mediaRel ['cruser_id'] = $rowNewsMedia['cruser_id'];
+                $mediaRel ['deleted'] = $rowNewsMedia['deleted'];
+                $mediaRel ['hidden'] = $rowNewsMedia['hidden'];
+                $mediaRel ['sys_language_uid'] = $rowNewsMedia['sys_language_uid'];
+                $mediaRel ['l10n_parent'] = 0;
+                $mediaRel ['l10n_state'] = null;
+                $mediaRel ['l10n_diffsource'] = '';
+                $mediaRel ['t3ver_oid'] = 0;
+                $mediaRel ['t3ver_wsid'] = 0;
+                $mediaRel ['t3ver_state'] = 0;
+                $mediaRel ['t3ver_stage'] = 0;
+                $mediaRel ['t3ver_count'] = 0;
+                $mediaRel ['t3ver_tstamp'] = 0;
+                $mediaRel ['t3ver_move_id'] = 0;
+
+                $mediaRel ['tablenames'] = 'tx_news_domain_model_news';
+                $mediaRel ['fieldname'] = 'fal_media';
+                $mediaRel ['sorting_foreign'] = 1;
+                $mediaRel ['table_local'] = 'sys_file';
+                $mediaRel ['title'] = $rowNewsMedia['title'];
+                $mediaRel ['description'] = $rowNewsMedia['description'] . $rowNewsMedia['copyright'];
+                $mediaRel ['alternative'] = $rowNewsMedia['alt'];
+                $mediaRel ['link'] = '';
+                $mediaRel ['crop'] = '{"default":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null}}';
+                $mediaRel ['autoplay'] = 0;
+                $mediaRel ['showinpreview'] = 0;
+
+                $mediaSql = $this->makeInsert($mediaRel, 'sys_file_reference', $this->config->connTarget);
+
+                if ($this->config->connTarget->query($mediaSql) === TRUE) {
+                    echo '';
+                } else {
+                    echo "Error: " . $this->config->connTarget->error . PHP_EOL;
+                    echo "sql: " . $mediaSql . PHP_EOL;
+                }
+
+            }
+        }
+    }
+
+    private function importNewsCategory($uid, $insertData)
+    {
+        $resultNewsCatagory = $this->config->connSource->query('select * from tx_news_domain_model_news_category_mm where uid_local = ' . $uid);
+
+        if ($resultNewsCatagory->num_rows > 0) {
+            // output data of each row
+            while ($rowNewsCatgory = $resultNewsCatagory->fetch_assoc()) {
+
+                $categoryRelation = [];
+
+                // catgoriy
+                if (!$this->config->categoryMap[$rowNewsCatgory['uid_foreign']]) {
+                    continue;
+                }
+                $categoryRelation ['uid_local'] = $this->config->categoryMap[$rowNewsCatgory['uid_foreign']];
+                $categoryRelation ['uid_foreign'] = $this->config->newsMap[$uid];
+                $categoryRelation ['sorting_foreign'] = $rowNewsCatgory['sorting'];
+                $categoryRelation ['tablenames'] = 'tx_news_domain_model_news';
+                $categoryRelation ['fieldname'] = 'categories';
+
+
+
+                $mediaSql = $this->makeInsert($categoryRelation, 'sys_category_record_mm', $this->config->connTarget);
+
+                if ($this->config->connTarget->query($mediaSql) === TRUE) {
+                    echo '';
+                } else {
+                    echo "Error: " . $this->config->connTarget->error . PHP_EOL;
+                    echo "sql: " . $mediaSql . PHP_EOL;
+                }
+
+            }
+        }
     }
 
 }
