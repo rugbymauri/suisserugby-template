@@ -12,27 +12,202 @@ class MigrateCommand extends Command
 {
 
 
+    private $config;
+
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $config = new Config();
 
+        $this->config = new Config();
+        $this->importFiles();
+        $this->importPages();
+        $this->importContent();
+        $this->importNews();
 
-        $this->importFiles($config);
-        $this->importPages($config);
-        $this->importContent($config);
-
-        $config->close();
+        $this->config->close();
 
     }
 
-    private function importFiles(Config $c): void
+    private function importNews(): void
+    {
+        $newsPid = 25;
+        $eventPid = 26;
+
+
+        $result = $this->config->connSource->query("SELECT * FROM tx_news_domain_model_news  order by uid");
+
+        $pageOldUid = $this->config->connTarget->query('SHOW COLUMNS FROM `tx_news_domain_model_news` LIKE \'old_uid\'');
+        if ($pageOldUid->num_rows === 0) {
+            $this->config->connTarget->query('ALTER TABLE `tx_news_domain_model_news` ADD COLUMN `old_uid` INT(11)');
+        }
+
+
+        if ($result->num_rows > 0) {
+            // output data of each row
+            while ($row = $result->fetch_assoc()) {
+
+                if ($row['tx_roqnewsevent_is_event'] == 1) {
+                    continue;
+                }
+
+
+
+
+                $insertData = $row;
+                $insertData['pid'] = $newsPid;
+                $insertData['old_uid'] = $insertData['uid'];
+                if ($insertData['t3_origuid'] && isset($this->config->newsMap[$insertData['t3_origuid']])) {
+                    $insertData['t3_origuid'] = $this->config->newsMap[$insertData['t3_origuid']];
+                }
+                if ($insertData['l10n_parent'] && isset($this->config->newsMap[$insertData['l10n_parent']])) {
+                    $insertData['l10n_parent'] = $this->config->newsMap[$insertData['l10n_parent']];
+                }
+
+                if ($row['tx_roqnewsevent_is_event'] == 1) {
+                    $insertData['pid'] = $eventPid;
+                }
+
+
+                unset($insertData['uid']);
+                unset($insertData['rte_disabled']);
+                unset($insertData['is_dummy_record']);
+                unset($insertData['tx_roqnewsevent_is_event']);
+                unset($insertData['tx_roqnewsevent_startdate']);
+                unset($insertData['tx_roqnewsevent_starttime']);
+                unset($insertData['tx_roqnewsevent_enddate']);
+                unset($insertData['tx_roqnewsevent_endtime']);
+                unset($insertData['tx_roqnewsevent_location']);
+
+
+                $insertData['content_elements'] = 0;
+
+                $sql = $this->makeInsert($insertData, 'tx_news_domain_model_news', $this->config->connTarget);
+
+
+                if ($this->config->connTarget->query($sql) === TRUE) {
+                    echo '';
+                    $this->config->newsMap[$row['uid']] = $this->config->connTarget->insert_id;
+
+
+                    $resultNewsMedia = $this->config->connSource->query('select * from tx_news_domain_model_media where parent = ' . $row['uid']);
+
+                    if ($resultNewsMedia->num_rows > 0) {
+                        // output data of each row
+                        while ($rowNewsMedia = $resultNewsMedia->fetch_assoc()) {
+
+                            $mediaRel = [];
+
+                            $mediaUid = $this->getSysFileId($rowNewsMedia['image']);
+                            if ($mediaUid !== null) {
+                                $mediaRel ['uid_local'] = $this->getSysFileId($rowNewsMedia['image']);
+                            } else {
+                                continue;
+                            }
+
+                            $mediaRel ['uid_foreign'] = $this->config->newsMap[$row['uid']];
+
+                            $mediaRel ['pid'] = $insertData['pid'];
+                            $mediaRel ['tstamp'] = $rowNewsMedia['tstamp'];
+                            $mediaRel ['crdate'] = $rowNewsMedia['crdate'];
+                            $mediaRel ['cruser_id'] = $rowNewsMedia['cruser_id'];
+                            $mediaRel ['deleted'] = $rowNewsMedia['deleted'];
+                            $mediaRel ['hidden'] = $rowNewsMedia['hidden'];
+                            $mediaRel ['sys_language_uid'] = $rowNewsMedia['sys_language_uid'];
+                            $mediaRel ['l10n_parent'] = 0;
+                            $mediaRel ['l10n_state'] = null;
+                            $mediaRel ['l10n_diffsource'] = '';
+                            $mediaRel ['t3ver_oid'] = 0;
+                            $mediaRel ['t3ver_wsid'] = 0;
+                            $mediaRel ['t3ver_state'] = 0;
+                            $mediaRel ['t3ver_stage'] = 0;
+                            $mediaRel ['t3ver_count'] = 0;
+                            $mediaRel ['t3ver_tstamp'] = 0;
+                            $mediaRel ['t3ver_move_id'] = 0;
+
+                            $mediaRel ['tablenames'] = 'tx_news_domain_model_news';
+                            $mediaRel ['fieldname'] = 'fal_media';
+                            $mediaRel ['sorting_foreign'] = 1;
+                            $mediaRel ['table_local'] = 'sys_file';
+                            $mediaRel ['title'] = $rowNewsMedia['title'];
+                            $mediaRel ['description'] = $rowNewsMedia['description'] . $rowNewsMedia['copyright'];
+                            $mediaRel ['alternative'] = $rowNewsMedia['alt'];
+                            $mediaRel ['link'] = '';
+                            $mediaRel ['crop'] = '{"default":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null}}';
+                            $mediaRel ['autoplay'] = 0;
+                            $mediaRel ['showinpreview'] = 0;
+
+                            $mediaSql = $this->makeInsert($mediaRel, 'sys_file_reference', $this->config->connTarget);
+
+                            if ($this->config->connTarget->query($mediaSql) === TRUE) {
+                                echo '';
+                            } else {
+                                echo "Error: " . $this->config->connTarget->error . PHP_EOL;
+                                echo "sql: " . $mediaSql . PHP_EOL;
+                            }
+
+                        }
+                    }
+
+                     // migrate media
+//                    uid
+//                    pid
+//                    tstamp
+//                    crdate
+//                    cruser_id
+//                    deleted
+//                    hidden
+//                    sys_language_uid
+//                    l10n_parent
+//                    l10n_state
+//                    l10n_diffsource
+//                    t3ver_oid
+//                    t3ver_wsid
+//                    t3ver_state
+//                    t3ver_stage
+//                    t3ver_count
+//                    t3ver_tstamp
+//                    t3ver_move_id
+//                    uid_local
+//                    uid_foreign
+//                    tablenames
+//                    fieldname
+//                    sorting_foreign
+//                    table_local
+//                    title
+//                    description
+//                    alternative
+//                    link
+//                    crop
+//                    autoplay
+//                    showinpreview
+//                    344,$newPid,1596843940,1596843940,1,0,0,0,0,,0x,0,0,0,0,0,0,0,$sysFileId,$newsId,tx_news_domain_model_news,fal_media,1,sys_file,,,,"","{""default"":{""cropArea"":{""x"":0,""y"":0,""width"":1,""height"":1},""selectedRatio"":""NaN"",""focusArea"":null}}",0,0
+//                    345,$newPid,1596843940,1596843940,1,0,0,1,$prevId,,0x,0,0,0,0,0,0,0,$sysFileId,$translatedNewsId,tx_news_domain_model_news,fal_media,1,sys_file,[Translate to French:] ,[Translate to French:] ,[Translate to French:] ,"","{""default"":{""cropArea"":{""x"":0,""y"":0,""width"":1,""height"":1},""selectedRatio"":""NaN"",""focusArea"":null}}",0,0
+
+                    $mediaRel = [];
+
+
+
+
+                } else {
+                    echo "Error: " . $this->config->connTarget->error . PHP_EOL;
+                    echo "sql: " . $sql . PHP_EOL;
+                }
+
+                $this->importFileRelation($row['uid'], $row['pid']);
+            }
+        } else {
+            echo "0 results";
+        }
+    }
+
+
+    private function importFiles(): void
     {
 
-        $result = $c->connSource->query("SELECT * FROM sys_file  order by pid");
+        $result = $this->config->connSource->query("SELECT * FROM sys_file  order by pid");
 
-        $pageOldUid = $c->connTarget->query('SHOW COLUMNS FROM `sys_file` LIKE \'old_uid\'');
+        $pageOldUid = $this->config->connTarget->query('SHOW COLUMNS FROM `sys_file` LIKE \'old_uid\'');
         if ($pageOldUid->num_rows === 0) {
-            $c->connTarget->query('ALTER TABLE `sys_file` ADD COLUMN `old_uid` INT(11)');
+            $this->config->connTarget->query('ALTER TABLE `sys_file` ADD COLUMN `old_uid` INT(11)');
         }
 
 
@@ -58,16 +233,16 @@ class MigrateCommand extends Command
                 }
 
 
-                $resultExisting = $c->connTarget->query("SELECT * FROM sys_file where identifier = '" . $row['identifier'] . "'");
+                $resultExisting = $this->config->connTarget->query("SELECT * FROM sys_file where identifier = '" . $row['identifier'] . "'");
                 if ($resultExisting->num_rows > 0) {
                     $existingRow = $resultExisting->fetch_assoc();
                     $sql = 'update sys_file set old_uid = ' . $row['uid'] . ' where uid = ' . $existingRow['uid'];
-                    $c->fileMap[$row['uid']] = $existingRow['uid'];
+                    $this->config->fileMap[$row['uid']] = $existingRow['uid'];
 
-                    if ($c->connTarget->query($sql) === TRUE) {
+                    if ($this->config->connTarget->query($sql) === TRUE) {
                         echo '';
                     } else {
-                        echo "Error: " . $c->connTarget->error . PHP_EOL;
+                        echo "Error: " . $this->config->connTarget->error . PHP_EOL;
                         echo "sql: " . $sql . PHP_EOL;
                     }
                 }
@@ -93,16 +268,16 @@ class MigrateCommand extends Command
                 unset($insertData['description']);
                 unset($insertData['alternative']);
 
-                $sql = $this->makeInsert($insertData, 'sys_file', $c->connTarget);
+                $sql = $this->makeInsert($insertData, 'sys_file', $this->config->connTarget);
 
-                if ($c->connTarget->query($sql) === TRUE) {
+                if ($this->config->connTarget->query($sql) === TRUE) {
                     echo '';
-                    $c->fileMap[$row['uid']] = $c->connTarget->insert_id;
-                    $insertData['uid'] = $c->connTarget->insert_id;
+                    $this->config->fileMap[$row['uid']] = $this->config->connTarget->insert_id;
+                    $insertData['uid'] = $this->config->connTarget->insert_id;
 
                     $this->importFileMetadata($row, $insertData['uid'], $c);
                 } else {
-                    echo "Error: " . $c->connTarget->error . PHP_EOL;
+                    echo "Error: " . $this->config->connTarget->error . PHP_EOL;
                     echo "sql: " . $sql . PHP_EOL;
                 }
             }
@@ -111,7 +286,7 @@ class MigrateCommand extends Command
         }
     }
 
-    private function importFileMetadata(?array $insertData, $uid, Config $c)
+    private function importFileMetadata(?array $insertData, $uid)
     {
         $metaData['pid'] = 0;
         $metaData['tstamp'] = time();
@@ -137,51 +312,49 @@ class MigrateCommand extends Command
         $metaData['alternative'] = $insertData['alternative'];
         $metaData['categories'] = 0;
 
-        $sql = $this->makeInsert($metaData, 'sys_file_metadata', $c->connTarget);
+        $sql = $this->makeInsert($metaData, 'sys_file_metadata', $this->config->connTarget);
 
-        if ($c->connTarget->query($sql) === TRUE) {
+        if ($this->config->connTarget->query($sql) === TRUE) {
             echo '';
         } else {
-            echo "Error: " . $c->connTarget->error . PHP_EOL;
+            echo "Error: " . $this->config->connTarget->error . PHP_EOL;
             echo "sql: " . $sql . PHP_EOL;
         }
 
     }
 
-
-
-    private function importPages(Config $c): void
+    private function importPages(): void
     {
-        $result = $c->connSource->query("SELECT page_id, language_id, pagepath FROM tx_realurl_pathcache");
+        $result = $this->config->connSource->query("SELECT page_id, language_id, pagepath FROM tx_realurl_pathcache");
         $slugs = [];
 
         while ($row = $result->fetch_assoc()) {
             $slugs[$row['page_id']][$row['language_id']] = $row['pagepath'];
         }
 
-        $result = $c->connSource->query("SELECT * FROM pages_language_overlay");
+        $result = $this->config->connSource->query("SELECT * FROM pages_language_overlay");
         $pageTransalations = [];
 
         while ($row = $result->fetch_assoc()) {
             $pageTransalations[$row['pid']][$row['sys_language_uid']] = $row;
         }
 
-        $result = $c->connSource->query("SELECT * FROM pages where deleted = 0 order by pid");
+        $result = $this->config->connSource->query("SELECT * FROM pages where deleted = 0 order by pid");
 
-        $pageOldUid = $c->connTarget->query('SHOW COLUMNS FROM `pages` LIKE \'old_uid\'');
+        $pageOldUid = $this->config->connTarget->query('SHOW COLUMNS FROM `pages` LIKE \'old_uid\'');
         if ($pageOldUid->num_rows === 0) {
-            $c->connTarget->query('ALTER TABLE `suisserugby_new`.`pages` ADD COLUMN `old_uid` INT(11) NULL AFTER `thumbnail`');
+            $this->config->connTarget->query('ALTER TABLE `suisserugby_new`.`pages` ADD COLUMN `old_uid` INT(11) NULL AFTER `thumbnail`');
         }
 
 
         if ($result->num_rows > 0) {
             // output data of each row
             while ($row = $result->fetch_assoc()) {
-                if (!isset($c->pageMap[$row['pid']])) {
+                if (!isset($this->config->pageMap[$row['pid']])) {
                     continue;
                 }
 
-                if (in_array($row['uid'], $c->skipPages)) {
+                if (in_array($row['uid'], $this->config->skipPages)) {
                     continue;
                 }
 
@@ -258,7 +431,7 @@ class MigrateCommand extends Command
                 $insertData['backend_layout'] = $row['backend_layout'];
                 $insertData['backend_layout_next_level'] = $row['backend_layout_next_level'];
                 $insertData['tx_impexp_origuid'] = $row['tx_impexp_origuid'];
-                $insertData['pid'] = $c->pageMap[$row['pid']];
+                $insertData['pid'] = $this->config->pageMap[$row['pid']];
                 if (isset($slugs[$row['uid']][0])) {
                     $insertData['slug'] = $slugs[$row['uid']][0];
                 } elseif (isset($slugs[$row['uid']][1])) {
@@ -266,10 +439,10 @@ class MigrateCommand extends Command
                 }
 
 
-                $sql = $this->makeInsert($insertData, 'pages', $c->connTarget);
+                $sql = $this->makeInsert($insertData, 'pages', $this->config->connTarget);
 
-                if ($c->connTarget->query($sql) === TRUE) {
-                    $c->pageMap[$row['uid']] = $c->connTarget->insert_id;
+                if ($this->config->connTarget->query($sql) === TRUE) {
+                    $this->config->pageMap[$row['uid']] = $this->config->connTarget->insert_id;
 
                     if (!isset($pageTransalations[$row['uid']])) {
                         continue;
@@ -298,19 +471,19 @@ class MigrateCommand extends Command
                         }
 
                         $insertData['sys_language_uid'] = $language;
-                        $insertData['l10n_parent'] = $c->pageMap[$row['uid']];
-                        $insertData['l10n_source'] = $c->pageMap[$row['uid']];
+                        $insertData['l10n_parent'] = $this->config->pageMap[$row['uid']];
+                        $insertData['l10n_source'] = $this->config->pageMap[$row['uid']];
 
                         $insert = [];
                         foreach ($insertData as $data) {
-                            $insert[] = "'" . $c->connTarget->real_escape_string($data) . "'";
+                            $insert[] = "'" . $this->config->connTarget->real_escape_string($data) . "'";
                         }
                         $sql =
                             'INSERT INTO pages (' . implode(', ', array_keys($insertData)) .
                             ') VALUES (' . implode(', ', $insert) . ')';
 
 
-                        if ($c->connTarget->query($sql) === FALSE) {
+                        if ($this->config->connTarget->query($sql) === FALSE) {
                             echo "Error Translations: " . $sql . PHP_EOL;
                         }
                     }
@@ -326,19 +499,18 @@ class MigrateCommand extends Command
         }
     }
 
-    private function importContent(Config $c): void
+    private function importContent(): void
     {
-
         $skippedContentType = [
             'div' => true,
             'media' => true,
         ];
 
-        $result = $c->connSource->query("SELECT * FROM tt_content where deleted = 0 order by pid");
+        $result = $this->config->connSource->query("SELECT * FROM tt_content where deleted = 0 order by pid");
 
-        $pageOldUid = $c->connTarget->query('SHOW COLUMNS FROM `tt_content` LIKE \'old_uid\'');
+        $pageOldUid = $this->config->connTarget->query('SHOW COLUMNS FROM `tt_content` LIKE \'old_uid\'');
         if ($pageOldUid->num_rows === 0) {
-            $c->connTarget->query('ALTER TABLE `tt_content` ADD COLUMN `old_uid` INT(11)');
+            $this->config->connTarget->query('ALTER TABLE `tt_content` ADD COLUMN `old_uid` INT(11)');
         }
 
 
@@ -346,7 +518,7 @@ class MigrateCommand extends Command
             // output data of each row
             while ($row = $result->fetch_assoc()) {
 
-                if (!isset($c->pageMap[$row['pid']])) {
+                if (!isset($this->config->pageMap[$row['pid']])) {
                     continue;
                 }
 
@@ -428,7 +600,7 @@ class MigrateCommand extends Command
                     $insertData['colPos'] = 0;
                 }
 
-                $insertData['pid'] = $c->pageMap[$row['pid']];
+                $insertData['pid'] = $this->config->pageMap[$row['pid']];
                 $insertData['old_uid'] = $row['uid'];
                 $insertData['cruser_id'] = 1;
                 $insertData['header_layout'] = 0;
@@ -456,15 +628,15 @@ class MigrateCommand extends Command
     </data>
 </T3FlexForms>';
 
-                $sql = $this->makeInsert($insertData, 'tt_content', $c->connTarget);
+                $sql = $this->makeInsert($insertData, 'tt_content', $this->config->connTarget);
 
 
-                if ($c->connTarget->query($sql) === TRUE) {
+                if ($this->config->connTarget->query($sql) === TRUE) {
                     echo '';
-                    $c->contentMap[$row['uid']] = $c->connTarget->insert_id;
+                    $this->config->contentMap[$row['uid']] = $this->config->connTarget->insert_id;
 
                 } else {
-                    echo "Error: " . $c->connTarget->error . PHP_EOL;
+                    echo "Error: " . $this->config->connTarget->error . PHP_EOL;
                     echo "sql: " . $sql . PHP_EOL;
                 }
 
@@ -475,16 +647,16 @@ class MigrateCommand extends Command
         }
     }
 
-    private function importFileRelation($content_uid, $page_uid, Config $c)
+    private function importFileRelation($content_uid, $page_uid)
     {
 
-        $result = $c->connSource->query("SELECT * FROM sys_file_reference where pid = " . $page_uid . " and uid_foreign = " . $content_uid . " and deleted = 0");
+        $result = $this->config->connSource->query("SELECT * FROM sys_file_reference where pid = " . $page_uid . " and uid_foreign = " . $content_uid . " and deleted = 0");
 
         if ($result->num_rows > 0) {
             // output data of each row
             while ($row = $result->fetch_assoc()) {
 
-                if (!isset($c->fileMap[$row['uid_local']])) {
+                if (!isset($this->config->fileMap[$row['uid_local']])) {
                     continue;
                 }
 
@@ -502,18 +674,18 @@ class MigrateCommand extends Command
                 }
 
                 $insertData['cruser_id'] = 1;
-                $insertData['uid_local'] = $c->fileMap[$insertData['uid_local']];
-                $insertData['pid'] = $c->pageMap[$insertData['pid']];
-                $insertData['uid_foreign'] = $c->contentMap[$insertData['uid_foreign']];
+                $insertData['uid_local'] = $this->config->fileMap[$insertData['uid_local']];
+                $insertData['pid'] = $this->config->pageMap[$insertData['pid']];
+                $insertData['uid_foreign'] = $this->config->contentMap[$insertData['uid_foreign']];
                 $insertData['l10n_diffsource'] = '';
                 $insertData['crop'] = '{"default":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null},"large":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null},"medium":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null},"small":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null},"extrasmall":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null}}';
 
-                $sql = $this->makeInsert($insertData, 'sys_file_reference', $c->connTarget);
+                $sql = $this->makeInsert($insertData, 'sys_file_reference', $this->config->connTarget);
 
-                if ($c->connTarget->query($sql) === TRUE) {
+                if ($this->config->connTarget->query($sql) === TRUE) {
                     echo '';
                 } else {
-                    echo "Error: " . $c->connTarget->error . PHP_EOL;
+                    echo "Error: " . $this->config->connTarget->error . PHP_EOL;
                     echo "sql: " . $sql . PHP_EOL;
                 }
             }
@@ -547,6 +719,20 @@ class MigrateCommand extends Command
 
     private function convert($str) {
         return mb_convert_encoding($str, 'UTF-8' , 'UTF-8');
+    }
+
+    private function getSysFileId($image)
+    {
+        $result = $this->config->connSource->query("SELECT uid FROM sys_file where identifier = '/uploads/tx_news/" . $image . "'");
+
+
+        if ($result->num_rows > 0) {
+            // output data of each row
+            while ($row = $result->fetch_assoc()) {
+                return $row['uid'];
+            }
+        }
+        return null;
     }
 
 }

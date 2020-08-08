@@ -25,6 +25,7 @@ class Config
     public $pageMap = [ 1 => 1];
     public $contentMap = [];
     public $fileMap = [];
+    public $newsMap = [];
     public $connSource;
     public $connTarget;
 
