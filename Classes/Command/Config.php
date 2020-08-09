@@ -32,13 +32,16 @@ class Config
 
     public function __construct()
     {
-        $this->connSource = new mysqli("127.0.0.2", "root", "root", 'suisserugby');
+        require 'config.php';
+
+        /** @var $config */
+        $this->connSource = new mysqli($config['source']['host'], $config['source']['user'], $config['source']['pwd'], $config['source']['db']);
         $this->connSource->set_charset("utf8");
         if ($this->connSource->connect_error) {
             die("Connection failed: " . $this->connSource->connect_error);
         }
         echo "Connected successfully";
-        $this->connTarget = new mysqli("127.0.0.1", "root", "root", 'suisserugby_new');
+        $this->connTarget = new mysqli($config['target']['host'], $config['target']['user'], $config['target']['pwd'], $config['target']['db']);
         $this->connTarget->character_set_name();
         $this->connTarget->set_charset("utf8");
         if ($this->connTarget->connect_error) {

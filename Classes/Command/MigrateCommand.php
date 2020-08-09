@@ -50,10 +50,6 @@ class MigrateCommand extends Command
             // output data of each row
             while ($row = $result->fetch_assoc()) {
 
-                if ($row['tx_roqnewsevent_is_event'] == 1) {
-                    continue;
-                }
-
 
                 $insertData = $row;
                 $insertData['pid'] = $newsPid;
@@ -78,9 +74,21 @@ class MigrateCommand extends Command
                 unset($insertData['tx_roqnewsevent_enddate']);
                 unset($insertData['tx_roqnewsevent_endtime']);
                 unset($insertData['tx_roqnewsevent_location']);
-
-
                 $insertData['content_elements'] = 0;
+
+
+
+                if ($row['tx_roqnewsevent_is_event'] == 1) {
+                    $insertData['pid'] = $eventPid;
+                    $insertData['is_event'] = 1;
+                    $insertData['datetime'] = 1;
+                    $insertData['event_end'] = 1;
+                    $insertData['organizer_simple'] = 1;
+                    $insertData['location_simple'] = 1;
+
+
+                    continue;
+                }
 
                 $sql = $this->makeInsert($insertData, 'tx_news_domain_model_news', $this->config->connTarget);
 
@@ -183,7 +191,7 @@ class MigrateCommand extends Command
                     $this->config->fileMap[$row['uid']] = $this->config->connTarget->insert_id;
                     $insertData['uid'] = $this->config->connTarget->insert_id;
 
-                    $this->importFileMetadata($row, $insertData['uid'], $c);
+                    $this->importFileMetadata($row, $insertData['uid']);
                 } else {
                     echo "Error: " . $this->config->connTarget->error . PHP_EOL;
                     echo "sql: " . $sql . PHP_EOL;
@@ -548,7 +556,7 @@ class MigrateCommand extends Command
                     echo "sql: " . $sql . PHP_EOL;
                 }
 
-                $this->importFileRelation($row['uid'], $row['pid'], $c);
+                $this->importFileRelation($row['uid'], $row['pid']);
             }
         } else {
             echo "0 results";
@@ -624,10 +632,6 @@ class MigrateCommand extends Command
         return $sql;
     }
 
-
-    private function convert($str) {
-        return mb_convert_encoding($str, 'UTF-8' , 'UTF-8');
-    }
 
     private function getSysFileId($image)
     {
