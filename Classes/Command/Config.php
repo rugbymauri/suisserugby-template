@@ -19,7 +19,6 @@ class Config
         65,
         11,
         128,
-
     ];
 
     public $pageMap = [ 1 => 1];
@@ -33,8 +32,6 @@ class Config
     public function __construct()
     {
         require 'config.php';
-
-        var_dump($config);
 
         /** @var $config */
         $this->connSource = new mysqli($config['source']['host'], $config['source']['user'], $config['source']['pwd'], $config['source']['db']);

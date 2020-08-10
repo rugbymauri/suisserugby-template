@@ -258,7 +258,7 @@ class MigrateCommand extends Command
 
         $pageOldUid = $this->config->connTarget->query('SHOW COLUMNS FROM `pages` LIKE \'old_uid\'');
         if ($pageOldUid->num_rows === 0) {
-            $this->config->connTarget->query('ALTER TABLE `suisserugby_new`.`pages` ADD COLUMN `old_uid` INT(11) NULL AFTER `thumbnail`');
+            $this->config->connTarget->query('ALTER TABLE `pages` ADD COLUMN `old_uid` INT(11) NULL AFTER `thumbnail`');
         }
 
 
@@ -272,11 +272,6 @@ class MigrateCommand extends Command
                 if (in_array($row['uid'], $this->config->skipPages)) {
                     continue;
                 }
-
-//                echo "uid: " . $row["uid"] .
-//                    " - pid: " . $row["pid"] .
-//                    " - title: " . $row["title"] .
-//                    PHP_EOL;
 
 
                 $insertData = [];
@@ -364,7 +359,6 @@ class MigrateCommand extends Command
                     }
                     foreach ($pageTransalations[$row['uid']] as $language => $transalation) {
 
-//                        echo 'Translate: ' . $language . PHP_EOL;
                         foreach ($transalation as $key => $value) {
                             if (isset($insertData[$key])) {
                                 if ($key === 'uid') {
@@ -398,7 +392,9 @@ class MigrateCommand extends Command
                             ') VALUES (' . implode(', ', $insert) . ')';
 
 
-                        if ($this->config->connTarget->query($sql) === FALSE) {
+                        if ($this->config->connTarget->query($sql) === true) {
+//                            $this->config->pageMap[$row['uid']] = $this->config->connTarget->insert_id;
+                        } else {
                             echo "Error Translations: " . $sql . PHP_EOL;
                         }
                     }
@@ -455,9 +451,6 @@ class MigrateCommand extends Command
                     continue;
                 }
 
-                if ($row['sys_language_uid'] != 0) {
-                    continue;
-                }
 
 
                 if ($row['CType'] == 'menu') {
@@ -514,6 +507,24 @@ class MigrateCommand extends Command
                 }
                 if ($insertData['colPos'] == -1) {
                     $insertData['colPos'] = 0;
+                }
+                if (is_numeric($insertData['header_link'])) {
+                    $insertData['header_link'] = $this->config->pageMap[$insertData['header_link']];
+                }
+
+                if ($insertData['t3_origuid']) {
+                    if (isset($this->config->contentMap[$insertData['t3_origuid']])) {
+                        $insertData['t3_origuid'] = $this->config->contentMap[$insertData['t3_origuid']];
+                    } else {
+                        $insertData['t3_origuid']=0;
+                    }
+                }
+                if ($insertData['l18n_parent']) {
+                    if (isset($this->config->contentMap[$insertData['l18n_parent']])) {
+                        $insertData['l18n_parent'] = $this->config->contentMap[$insertData['l18n_parent']];
+                    } else {
+                        $insertData['l18n_parent']=0;
+                    }
                 }
 
                 $insertData['pid'] = $this->config->pageMap[$row['pid']];
@@ -596,6 +607,14 @@ class MigrateCommand extends Command
                 $insertData['l10n_diffsource'] = '';
                 $insertData['crop'] = '{"default":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null},"large":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null},"medium":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null},"small":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null},"extrasmall":{"cropArea":{"x":0,"y":0,"width":1,"height":1},"selectedRatio":"NaN","focusArea":null}}';
 
+                if ($insertData['l10n_parent']) {
+                    if (isset($this->config->contentMap[$insertData['l10n_parent']])) {
+                        $insertData['l10n_parent'] = $this->config->contentMap[$insertData['l10n_parent']];
+                    } else {
+                        $insertData['l10n_parent']=0;
+                    }
+                }
+
                 $sql = $this->makeInsert($insertData, 'sys_file_reference', $this->config->connTarget);
 
                 if ($this->config->connTarget->query($sql) === TRUE) {
@@ -631,7 +650,6 @@ class MigrateCommand extends Command
 
         return $sql;
     }
-
 
     private function getSysFileId($image)
     {
