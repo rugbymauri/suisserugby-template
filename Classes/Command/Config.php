@@ -34,6 +34,8 @@ class Config
     {
         require 'config.php';
 
+        var_dump($config);
+
         /** @var $config */
         $this->connSource = new mysqli($config['source']['host'], $config['source']['user'], $config['source']['pwd'], $config['source']['db']);
         $this->connSource->set_charset("utf8");

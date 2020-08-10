@@ -86,7 +86,6 @@ class MigrateCommand extends Command
                     $insertData['organizer_simple'] = 1;
                     $insertData['location_simple'] = 1;
 
-
                     continue;
                 }
 
