@@ -405,7 +405,8 @@ class MigrateCommand extends Command
 
 
                 } else {
-                    echo "Error: " . $sql . PHP_EOL;
+                    echo "Error: " . $this->config->connTarget->error . PHP_EOL;
+                    echo "sql: " . $sql . PHP_EOL;
                 }
 
             }
