@@ -76,7 +76,9 @@ class MigrateCommand extends Command
                 unset($insertData['tx_roqnewsevent_location']);
                 $insertData['content_elements'] = 0;
 
-
+                if (isset($insertData['sys_language_uid'])) {
+                    $insertData['sys_language_uid'] = $this->getSysLangId($insertData['sys_language_uid']);
+                }
 
                 if ($row['tx_roqnewsevent_is_event'] == 1) {
                     $insertData['pid'] = $eventPid;
@@ -183,6 +185,10 @@ class MigrateCommand extends Command
                 unset($insertData['description']);
                 unset($insertData['alternative']);
 
+                if (isset($insertData['sys_language_uid'])) {
+                    $insertData['sys_language_uid'] = $this->getSysLangId($insertData['sys_language_uid']);
+                }
+
                 $sql = $this->makeInsert($insertData, 'sys_file', $this->config->connTarget);
 
                 if ($this->config->connTarget->query($sql) === TRUE) {
@@ -226,6 +232,10 @@ class MigrateCommand extends Command
         $metaData['description'] = $insertData['description'];
         $metaData['alternative'] = $insertData['alternative'];
         $metaData['categories'] = 0;
+
+        if (isset($metaData['sys_language_uid'])) {
+            $metaData['sys_language_uid'] = $this->getSysLangId($metaData['sys_language_uid']);
+        }
 
         $sql = $this->makeInsert($metaData, 'sys_file_metadata', $this->config->connTarget);
 
@@ -348,6 +358,9 @@ class MigrateCommand extends Command
                     $insertData['slug'] = $slugs[$row['uid']][1];
                 }
 
+                if (isset($insertData['sys_language_uid'])) {
+                    $insertData['sys_language_uid'] = $this->getSysLangId($insertData['sys_language_uid']);
+                }
 
                 $sql = $this->makeInsert($insertData, 'pages', $this->config->connTarget);
 
@@ -382,6 +395,10 @@ class MigrateCommand extends Command
                         $insertData['sys_language_uid'] = $language;
                         $insertData['l10n_parent'] = $this->config->pageMap[$row['uid']];
                         $insertData['l10n_source'] = $this->config->pageMap[$row['uid']];
+
+                        if (isset($insertData['sys_language_uid'])) {
+                            $insertData['sys_language_uid'] = $this->getSysLangId($language);
+                        }
 
                         $insert = [];
                         foreach ($insertData as $data) {
@@ -554,6 +571,9 @@ class MigrateCommand extends Command
         </sheet>
     </data>
 </T3FlexForms>';
+                if (isset($insertData['sys_language_uid'])) {
+                    $insertData['sys_language_uid'] = $this->getSysLangId($insertData['sys_language_uid']);
+                }
 
                 $sql = $this->makeInsert($insertData, 'tt_content', $this->config->connTarget);
 
@@ -613,6 +633,10 @@ class MigrateCommand extends Command
                     } else {
                         $insertData['l10n_parent']=0;
                     }
+                }
+
+                if (isset($insertData['sys_language_uid'])) {
+                    $insertData['sys_language_uid'] = $this->getSysLangId($insertData['sys_language_uid']);
                 }
 
                 $sql = $this->makeInsert($insertData, 'sys_file_reference', $this->config->connTarget);
@@ -718,6 +742,10 @@ class MigrateCommand extends Command
                 $mediaRel ['autoplay'] = 0;
                 $mediaRel ['showinpreview'] = 0;
 
+                if (isset($mediaRel['sys_language_uid'])) {
+                    $mediaRel['sys_language_uid'] = $this->getSysLangId($mediaRel['sys_language_uid']);
+                }
+
                 $mediaSql = $this->makeInsert($mediaRel, 'sys_file_reference', $this->config->connTarget);
 
                 if ($this->config->connTarget->query($mediaSql) === TRUE) {
@@ -752,6 +780,9 @@ class MigrateCommand extends Command
                 $categoryRelation ['fieldname'] = 'categories';
 
 
+                if (isset($categoryRelation['sys_language_uid'])) {
+                    $categoryRelation['sys_language_uid'] = $this->getSysLangId($categoryRelation['sys_language_uid']);
+                }
 
                 $mediaSql = $this->makeInsert($categoryRelation, 'sys_category_record_mm', $this->config->connTarget);
 
@@ -764,6 +795,14 @@ class MigrateCommand extends Command
 
             }
         }
+    }
+
+    private function getSysLangId($id)
+    {
+        if  ($id == 0) return 0;
+        if  ($id == 1) return 1;
+        if  ($id == 2) return 3;
+        if  ($id == 3) return 2;
     }
 
 }
