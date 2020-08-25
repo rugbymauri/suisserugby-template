@@ -137,10 +137,10 @@ class MigrateCommand extends Command
                 $file = null;
                 switch ($row['storage']) {
                     case 0;
-                        $file = '/home/mauri/PhpstormProjects/suisserugby-new/public' . $row['identifier'];
+                        $file = $this->config->baseDir . '/public' . $row['identifier'];
                         break;
                     case 1;
-                        $file = '/home/mauri/PhpstormProjects/suisserugby-new/public/fileadmin' . $row['identifier'];
+                        $file = $this->config->baseDir .'/public/fileadmin' . $row['identifier'];
                         break;
 
                 }

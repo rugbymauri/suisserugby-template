@@ -28,12 +28,16 @@ class Config
     public $categoryMap = [];
     public $connSource;
     public $connTarget;
+    public $baseDir;
 
     public function __construct()
     {
         require 'config.php';
 
         /** @var $config */
+        $this->baseDir = $config['baseDir'];
+
+
         $this->connSource = new mysqli($config['source']['host'], $config['source']['user'], $config['source']['pwd'], $config['source']['db']);
         $this->connSource->set_charset("utf8");
         if ($this->connSource->connect_error) {
