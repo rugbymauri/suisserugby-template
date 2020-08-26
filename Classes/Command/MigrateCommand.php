@@ -91,6 +91,9 @@ class MigrateCommand extends Command
                     continue;
                 }
 
+
+                $insertData['bodytext'] = $this->convertLinks($insertData['bodytext']);
+
                 $sql = $this->makeInsert($insertData, 'tx_news_domain_model_news', $this->config->connTarget);
 
 
@@ -544,6 +547,7 @@ class MigrateCommand extends Command
                     }
                 }
 
+                $insertData['bodytext'] = $this->convertLinks($row['bodytext']);
                 $insertData['pid'] = $this->config->pageMap[$row['pid']];
                 $insertData['old_uid'] = $row['uid'];
                 $insertData['cruser_id'] = 1;
@@ -803,6 +807,37 @@ class MigrateCommand extends Command
         if  ($id == 1) return 1;
         if  ($id == 2) return 3;
         if  ($id == 3) return 2;
+    }
+
+    private function convertLinks($bodytext)
+    {
+
+        $resplaced = false;
+        $linkPattern = '/\<link (\d+)/m';
+
+        preg_match_all($linkPattern, $bodytext, $matches, PREG_SET_ORDER, 0);
+
+        foreach ($matches as $match) {
+            if (isset($this->config->pageMap[$match[1]])) {
+                $bodytext = str_replace('<link ' . $match[1], '<link ' . $this->config->pageMap[$match[1]], $bodytext);
+                $resplaced = true;
+            }
+        }
+
+
+        $linkFilePattern = '/\<link file:(\d+)/m';
+
+        preg_match_all($linkFilePattern, $bodytext, $matches, PREG_SET_ORDER, 0);
+
+        foreach ($matches as $match) {
+            if (isset($this->config->fileMap[$match[1]])) {
+                $bodytext = str_replace('<link file:' . $match[1], '<link file:' . $this->config->fileMap[$match[1]], $bodytext);
+                $resplaced = true;
+            }
+        }
+
+
+        return $bodytext;
     }
 
 }
