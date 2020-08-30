@@ -26,7 +26,16 @@ page {
     }
     theme {
         language.languageValue = 1,2,3
+        language.enable = 0
         copyright.enable = 0
+        socialmedia {
+            channels {
+                facebook.url = https://www.facebook.com/SwissRugbyUnion
+                twitter.url = https://twitter.com/SwissRugbyUnion
+                instagram.url = https://www.instagram.com/suisse_rugby/
+                youtube.url = https://www.youtube.com/channel/UCIHtLm65sFLPBwzB-yaro4Q
+            }
+        }
     }
 
 }
