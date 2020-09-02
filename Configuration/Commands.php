@@ -4,4 +4,7 @@ return [
     'suisserugby:migrate' => [
         'class' => \MaurizioMonticelli\SuisseRugby\Command\MigrateCommand::class,
     ],
+    'suisserugby:update' => [
+        'class' => \MaurizioMonticelli\SuisseRugby\Command\UpdateCommand::class,
+    ],
 ];
