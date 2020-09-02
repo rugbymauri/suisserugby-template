@@ -7,4 +7,7 @@ return [
     'suisserugby:update' => [
         'class' => \MaurizioMonticelli\SuisseRugby\Command\UpdateCommand::class,
     ],
+    'suisserugby:update-link' => [
+        'class' => \MaurizioMonticelli\SuisseRugby\Command\UpdateImageLinksCommand::class,
+    ],
 ];
