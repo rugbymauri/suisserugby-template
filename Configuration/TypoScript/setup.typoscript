@@ -62,3 +62,4 @@ page {
 }
 
 config.no_cache = 1
+plugin.tx_news.settings.list.media.dummyImage = typo3conf/ext/suisse_rugby/Resources/Public/Images/logo.png
