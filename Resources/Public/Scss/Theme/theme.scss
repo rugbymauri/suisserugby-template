@@ -10,3 +10,30 @@
 .breadcrumb-text {
   color: $white;
 }
+
+
+@include media-breakpoint-up('md') {
+  .textmedia-right,
+  .textmedia-left,
+  .textpic-right,
+  .textpic-left {
+    .textmedia-item,
+    .textpic-item {
+      margin-bottom: 0;
+    }
+    .textpic-text {
+      width: 75%;
+    }
+    .textpic-gallery {
+      width: 25%;
+    }
+  }
+  .textmedia-right,
+  .textpic-right {
+    .textmedia-gallery,
+    .textpic-gallery {
+      order: 2;
+    }
+  }
+}
+
