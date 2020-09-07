@@ -11,6 +11,10 @@
   color: $white;
 }
 
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
+  font-weight: $headings-font-weight;
+}
 
 @include media-breakpoint-up('md') {
   .textmedia-right,
@@ -33,6 +37,16 @@
     .textmedia-gallery,
     .textpic-gallery {
       order: 2;
+    }
+  }
+}
+
+
+.frame-collapsible {
+  @each $breakpoint in map-keys($frame-inner-spacing-scaling) {
+    @include media-breakpoint-up($breakpoint) {
+      $scaling: map-get($frame-inner-spacing-scaling, $breakpoint);
+      margin-top: -($frame-inner-spacing * $scaling);
     }
   }
 }
